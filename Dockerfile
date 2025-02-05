@@ -1,55 +1,52 @@
-# Etapa 1: Construção da imagem com as dependências
+# -------------------------------
+# Etapa de construção
 FROM python:3.10-slim AS builder
 
-# Desabilita o cache do pip para reduzir o tamanho da imagem
-ENV PIP_NO_CACHE_DIR=1
-
-# Instala dependências do sistema para construção
+# Instalar pacotes necessários para o build
 RUN apt-get update && \
-    apt-get install -y --fix-missing --no-install-recommends git python3-dev gcc \
-    && rm -rf /var/lib/apt/lists/ /var/cache/apt/archives/ /tmp/*
+    apt-get install -y --fix-missing --no-install-recommends git python3-dev gcc curl \
+    && rm -rf /var/lib/apt/lists/*
 
-# Clona o repositório (garanta que esse comando seja necessário para o seu bot)
-RUN git clone https://github.com/coddrago/Heroku /Heroku
+# Clonar o repositório
+RUN git clone https://github.com/ayumii3/Heroku.git /Heroku
 
-# Cria um ambiente virtual Python
+# Criar ambiente virtual
 RUN python -m venv /venv
 
-# Copia o arquivo requirements.txt e instala as dependências
-COPY /Heroku/requirements.txt /Heroku/requirements.txt
-RUN /venv/bin/pip install --no-warn-script-location --no-cache-dir -r /Heroku/requirements.txt
+# Instalar as dependências
+RUN /venv/bin/pip install --no-cache-dir -r /Heroku/requirements.txt
 
-# Etapa 2: Imagem final com a aplicação
+# -------------------------------
+# Etapa de execução
 FROM python:3.10-slim
 
-# Instala pacotes do sistema, como o ffmpeg
+# Instalar pacotes necessários para rodar o app
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends --fix-missing \
-    curl libcairo2 git ffmpeg libmagic1 \
-    libavcodec-dev libavutil-dev libavformat-dev \
+    apt-get install -y --no-install-recommends curl libcairo2 ffmpeg \
+    libmagic1 libavcodec-dev libavutil-dev libavformat-dev \
     libswscale-dev libavdevice-dev neofetch wkhtmltopdf gcc python3-dev \
-    && rm -rf /var/lib/apt/lists/ /var/cache/apt/archives/ /tmp/*
+    && rm -rf /var/lib/apt/lists/*
 
-# Instala o Node.js
+# Instalar Node.js
 RUN curl -sL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh && \
     bash nodesource_setup.sh && \
     apt-get install -y nodejs && \
     rm nodesource_setup.sh
 
-# Configura variáveis de ambiente
+# Definir variáveis de ambiente
 ENV DOCKER=true \
     GIT_PYTHON_REFRESH=quiet \
     PIP_NO_CACHE_DIR=1
 
-# Copia os arquivos da etapa de construção
+# Copiar a aplicação e o ambiente virtual do estágio de build
 COPY --from=builder /Heroku /Heroku
 COPY --from=builder /venv /Heroku/venv
 
-# Define o diretório de trabalho
+# Definir diretório de trabalho
 WORKDIR /Heroku
 
-# Exclui a camada de instalação de dependências se já existir
-# Ao usar o Docker, se o requirements.txt não for alterado, as dependências não serão instaladas novamente
+# Expor a porta (se necessário)
+EXPOSE 8080
 
-# Define o comando de execução do bot
+# Definir o comando para rodar o bot
 CMD ["/Heroku/venv/bin/python", "-m", "hikka"]
