@@ -1,49 +1,55 @@
-# thanks vsecoder
-
-# -------------------------------
-# Используем образ python:3.10-slim⁠ как базовый для этапа сборки
+# Etapa 1: Construção da imagem com as dependências
 FROM python:3.10-slim AS builder
-# Отключаем кэширование pip, чтобы уменьшить размер образа
+
+# Desabilita o cache do pip para reduzir o tamanho da imagem
 ENV PIP_NO_CACHE_DIR=1
-# Устанавливаем необходимые пакеты для сборки Python пакетов и git
+
+# Instala dependências do sistema para construção
 RUN apt-get update && \
-    apt-get install -y --fix-missing --no-install-recommends git python3-dev gcc
-# Очищаем кэш apt для уменьшения размера образа
-RUN rm -rf /var/lib/apt/lists/ /var/cache/apt/archives/ /tmp/*
-# Клонируем репозиторий Heroku
+    apt-get install -y --fix-missing --no-install-recommends git python3-dev gcc \
+    && rm -rf /var/lib/apt/lists/ /var/cache/apt/archives/ /tmp/*
+
+# Clona o repositório (garanta que esse comando seja necessário para o seu bot)
 RUN git clone https://github.com/coddrago/Heroku /Heroku
-# Создаем виртуальное окружение Python
+
+# Cria um ambiente virtual Python
 RUN python -m venv /venv
-# Устанавливаем зависимости проекта
+
+# Copia o arquivo requirements.txt e instala as dependências
+COPY /Heroku/requirements.txt /Heroku/requirements.txt
 RUN /venv/bin/pip install --no-warn-script-location --no-cache-dir -r /Heroku/requirements.txt
 
-# -------------------------------
-# Используем другой базовый образ для финального контейнера
+# Etapa 2: Imagem final com a aplicação
 FROM python:3.10-slim
-# Устанавливаем необходимые пакеты для работы приложения
+
+# Instala pacotes do sistema, como o ffmpeg
 RUN apt-get update && \
     apt-get install -y --no-install-recommends --fix-missing \
     curl libcairo2 git ffmpeg libmagic1 \
     libavcodec-dev libavutil-dev libavformat-dev \
-    libswscale-dev libavdevice-dev neofetch wkhtmltopdf gcc python3-dev
-# Устанавливаем Node.js
+    libswscale-dev libavdevice-dev neofetch wkhtmltopdf gcc python3-dev \
+    && rm -rf /var/lib/apt/lists/ /var/cache/apt/archives/ /tmp/*
+
+# Instala o Node.js
 RUN curl -sL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh && \
     bash nodesource_setup.sh && \
     apt-get install -y nodejs && \
     rm nodesource_setup.sh
-# Очищаем кэш apt для уменьшения размера образа
-RUN rm -rf /var/lib/apt/lists/ /var/cache/apt/archives/ /tmp/*
-# Устанавливаем переменные окружения для работы приложения
+
+# Configura variáveis de ambiente
 ENV DOCKER=true \
     GIT_PYTHON_REFRESH=quiet \
     PIP_NO_CACHE_DIR=1
-# Копируем собранное приложение и виртуальное окружение из этапа сборки
+
+# Copia os arquivos da etapa de construção
 COPY --from=builder /Heroku /Heroku
 COPY --from=builder /venv /Heroku/venv
-# Устанавливаем рабочую директорию
-WORKDIR /Heroku
-# Открываем порт 8080 для доступа к приложению
-EXPOSE 8080
 
-# Определяем команду запуска приложения
-CMD ["python3", "-m", "hikka"]
+# Define o diretório de trabalho
+WORKDIR /Heroku
+
+# Exclui a camada de instalação de dependências se já existir
+# Ao usar o Docker, se o requirements.txt não for alterado, as dependências não serão instaladas novamente
+
+# Define o comando de execução do bot
+CMD ["/Heroku/venv/bin/python", "-m", "hikka"]
