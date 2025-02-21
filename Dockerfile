@@ -1,52 +1,53 @@
-# -------------------------------
-# Etapa de construção
 FROM python:3.10-slim AS builder
 
-# Instalar pacotes necessários para o build
+ENV PIP_NO_CACHE_DIR=1
+
+# Установка базовых пакетов для сборки
 RUN apt-get update && \
-    apt-get install -y --fix-missing --no-install-recommends git python3-dev gcc curl \
-    && rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends git python3-dev gcc && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /tmp/*
 
-# Clonar o repositório
-RUN git clone https://github.com/ayumii3/Heroku.git /Heroku
+# Копируем код в контейнер
+COPY . /Hikka
 
-# Criar ambiente virtual
-RUN python -m venv /venv
+# Создаем виртуальное окружение
+RUN python -m venv /Hikka/venv
 
-# Instalar as dependências
-RUN /venv/bin/pip install --no-cache-dir -r /Heroku/requirements.txt
+# Обновляем pip
+RUN /Hikka/venv/bin/python -m pip install --upgrade pip
 
-# -------------------------------
-# Etapa de execução
+# Устанавливаем зависимости проекта
+RUN /Hikka/venv/bin/pip install --no-warn-script-location --no-cache-dir -r /Hikka/requirements.txt
+
+# Вторая стадия
 FROM python:3.10-slim
 
-# Instalar pacotes necessários para rodar o app
+# Установка необходимых пакетов
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl libcairo2 ffmpeg \
-    libmagic1 libavcodec-dev libavutil-dev libavformat-dev \
-    libswscale-dev libavdevice-dev neofetch wkhtmltopdf gcc python3-dev \
-    && rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends \
+    curl libcairo2 git ffmpeg libmagic1 \
+    libavcodec-dev libavutil-dev libavformat-dev \
+    libswscale-dev libavdevice-dev neofetch wkhtmltopdf gcc python3-dev iptables nftables && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /tmp/* && \
+    apt-get clean
 
-# Instalar Node.js
-RUN curl -sL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh && \
-    bash nodesource_setup.sh && \
+# Установка Node.js
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y nodejs && \
-    rm nodesource_setup.sh
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /tmp/* && \
+    apt-get clean
 
-# Definir variáveis de ambiente
+# Установка окружения
 ENV DOCKER=true \
     GIT_PYTHON_REFRESH=quiet \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    PATH="/Hikka/venv/bin:$PATH"
 
-# Copiar a aplicação e o ambiente virtual do estágio de build
-COPY --from=builder /Heroku /Heroku
-COPY --from=builder /venv /Heroku/venv
+# Копируем файлы из builder-стадии
+COPY --from=builder /Hikka /Hikka
 
-# Definir diretório de trabalho
-WORKDIR /Heroku
+# Устанавливаем рабочую директорию
+WORKDIR /Hikka
 
-# Expor a porta (se necessário)
-EXPOSE 8080
-
-# Definir o comando para rodar o bot
-CMD ["/Heroku/venv/bin/python", "-m", "hikka"]
+# Запускаем скрипт мониторинга и основную программу
+ENTRYPOINT ["python -m hikka"]
