@@ -13,8 +13,9 @@ RUN python -m venv /Hikka/venv
 
 RUN /Hikka/venv/bin/python -m pip install --upgrade pip
 
-# Instalando dependências sem a flag --user
+# Instalando dependências do requirements.txt e as adicionais
 RUN /Hikka/venv/bin/pip install --no-warn-script-location --no-cache-dir -r /Hikka/requirements.txt
+RUN /Hikka/venv/bin/pip install --no-cache-dir pydub openai==1.3.8
 
 FROM python:3.10-slim
 
