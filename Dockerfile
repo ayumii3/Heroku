@@ -41,5 +41,4 @@ WORKDIR /Hikka
 
 EXPOSE 8080
 
-# Define o comando de inicialização com CMD
 CMD ["python3", "-m", "hikka"]
